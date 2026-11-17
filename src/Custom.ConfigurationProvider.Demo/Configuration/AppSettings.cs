@@ -1,8 +1,13 @@
 ﻿namespace Custom.Configuration.Provider.Demo.Configuration;
 
-public class AppSettings : IAppSettings
+/// <summary>
+/// Static settings, read only from appsettings.json
+/// </summary>
+public sealed class AppSettings
 {
-  public string SettingA { get; set; }
+  public const string SectionName = nameof(AppSettings);
 
-  public string SettingB { get; set; }
+  public string? SettingA { get; set; }
+
+  public string? SettingB { get; set; }
 }

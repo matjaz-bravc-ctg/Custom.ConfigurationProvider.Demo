@@ -1,20 +1,21 @@
-﻿using System;
-using System.Threading;
+﻿namespace Custom.Configuration.Provider.Demo.Data.Entities.Common;
 
-namespace Custom.Configuration.Provider.Demo.Data.Entities.Common;
-
-public class EntityChangeObserver
+/// <summary>
+/// Tells the configuration provider that entities were saved.
+/// It is a singleton because configuration is built before dependency injection exists.
+/// </summary>
+public sealed class EntityChangeObserver
 {
-  public event EventHandler<EntityChangeEventArgs> Changed;
-
-  public void OnChanged(EntityChangeEventArgs e)
+  private EntityChangeObserver()
   {
-    ThreadPool.QueueUserWorkItem((_) => Changed?.Invoke(this, e));
   }
 
-  private static readonly Lazy<EntityChangeObserver> _lazy = new(() => new EntityChangeObserver());
+  public static EntityChangeObserver Instance { get; } = new();
 
-  private EntityChangeObserver() { }
+  public event EventHandler<EntityChangeEventArgs>? Changed;
 
-  public static EntityChangeObserver Instance => _lazy.Value;
+  /// <summary>
+  /// Raised synchronously after the changes are saved, so the next read of the configuration already sees them
+  /// </summary>
+  public void OnChanged(EntityChangeEventArgs e) => Changed?.Invoke(this, e);
 }

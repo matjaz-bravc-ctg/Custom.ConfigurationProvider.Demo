@@ -4,18 +4,12 @@ using Microsoft.Extensions.Options;
 
 namespace Custom.Configuration.Provider.Demo.Pages;
 
-  public class IndexModel : PageModel
-  {
-      // Note: Use IOptionsSnapshot to support reloading options!
-      // Options are computed once per request when accessed and cached for the lifetime of the request.
-      // Read more: https://docs.microsoft.com/en-us/aspnet/core/fundamentals/configuration/options?view=aspnetcore-3.0#reload-configuration-data-with-ioptionssnapshot
-      public IndexModel(IOptions<AppSettings> appSettings, IOptionsSnapshot<AppSettingsCustom> appSettingsCustom)
-      {
-          AppSettings = appSettings.Value;
-          AppSettingsCustom = appSettingsCustom.Value;
-      }
+// IOptionsSnapshot<T> is computed once per request, so it shows values reloaded from the database.
+// IOptions<T> is computed once for the lifetime of the application.
+// Read more: https://learn.microsoft.com/aspnet/core/fundamentals/configuration/options#use-ioptionssnapshot-to-read-updated-data
+public class IndexModel(IOptions<AppSettings> appSettings, IOptionsSnapshot<AppSettingsCustom> appSettingsCustom) : PageModel
+{
+  public AppSettings AppSettings { get; } = appSettings.Value;
 
-      public AppSettings AppSettings { get; set; }
-      
-      public AppSettingsCustom AppSettingsCustom { get; set; }
-  }
+  public AppSettingsCustom AppSettingsCustom { get; } = appSettingsCustom.Value;
+}

@@ -1,106 +1,99 @@
-﻿using Custom.Configuration.Provider.Demo.Data.Entities;
-using Custom.Configuration.Provider.Demo.Data;
+﻿using Custom.Configuration.Provider.Demo.Data;
+using Custom.Configuration.Provider.Demo.Data.Entities;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using System;
 
 namespace Custom.Configuration.Provider.Demo.Services.Repositories;
 
-public class AppSettingsCustomRepository(DatabaseContext dbContext) : IAppSettingsCustomRepository
+/// <summary>
+/// Keeps exactly one default configuration whenever there is at least one configuration.
+/// Each change is saved with a single SaveChanges, so the configuration provider reloads once per change.
+/// </summary>
+public sealed class AppSettingsCustomRepository(DatabaseContext dbContext) : IAppSettingsCustomRepository
 {
-  protected readonly DatabaseContext _dbContext = dbContext
-    ?? throw new ArgumentNullException(nameof(dbContext));
+  public async Task<IReadOnlyList<AppSettingsCustomEntity>> GetAllAsync(CancellationToken cancellationToken = default) =>
+    await dbContext.AppSettingsCustomItems
+      .AsNoTracking()
+      .OrderBy(entity => entity.Id)
+      .ToListAsync(cancellationToken);
 
-  public async Task<AppSettingsCustomEntity> AddAsync(AppSettingsCustomEntity entity)
+  public Task<AppSettingsCustomEntity?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
+    dbContext.AppSettingsCustomItems
+      .AsNoTracking()
+      .FirstOrDefaultAsync(entity => entity.Id == id, cancellationToken);
+
+  public async Task AddAsync(AppSettingsCustomEntity entity, CancellationToken cancellationToken = default)
   {
-    bool isDefault = entity.Default;
-    if (isDefault)
-    {
-      await ClearDefaultAsync(entity.Id);
-    }
-    entity.Default = isDefault;
-    _dbContext.AppSettingsCustomItems.Add(entity);
-    await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-    return entity;
+    List<AppSettingsCustomEntity> all = await LoadAllAsync(cancellationToken);
+    entity.Id = 0;
+    dbContext.AppSettingsCustomItems.Add(entity);
+    all.Add(entity);
+    KeepSingleDefault(all, entity.Default ? entity : null);
+    await dbContext.SaveChangesAsync(cancellationToken);
   }
+
+  public async Task<bool> UpdateAsync(AppSettingsCustomEntity entity, CancellationToken cancellationToken = default)
+  {
+    List<AppSettingsCustomEntity> all = await LoadAllAsync(cancellationToken);
+    AppSettingsCustomEntity? existing = all.Find(item => item.Id == entity.Id);
+    if (existing is null)
+    {
+      return false;
+    }
+
+    existing.CustomSettingA = entity.CustomSettingA;
+    existing.CustomSettingB = entity.CustomSettingB;
+    existing.Default = entity.Default;
+    KeepSingleDefault(all, existing.Default ? existing : null);
+    await dbContext.SaveChangesAsync(cancellationToken);
+    return true;
+  }
+
+  public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default)
+  {
+    List<AppSettingsCustomEntity> all = await LoadAllAsync(cancellationToken);
+    AppSettingsCustomEntity? existing = all.Find(item => item.Id == id);
+    if (existing is null)
+    {
+      return false;
+    }
+
+    dbContext.AppSettingsCustomItems.Remove(existing);
+    all.Remove(existing);
+    KeepSingleDefault(all, preferred: null);
+    await dbContext.SaveChangesAsync(cancellationToken);
+    return true;
+  }
+
+  public async Task<bool> SetDefaultAsync(int id, CancellationToken cancellationToken = default)
+  {
+    List<AppSettingsCustomEntity> all = await LoadAllAsync(cancellationToken);
+    AppSettingsCustomEntity? existing = all.Find(item => item.Id == id);
+    if (existing is null)
+    {
+      return false;
+    }
+
+    KeepSingleDefault(all, existing);
+    await dbContext.SaveChangesAsync(cancellationToken);
+    return true;
+  }
+
+  // The table holds a handful of rows, so loading them all keeps the default handling simple
+  private Task<List<AppSettingsCustomEntity>> LoadAllAsync(CancellationToken cancellationToken) =>
+    dbContext.AppSettingsCustomItems.ToListAsync(cancellationToken);
 
   /// <summary>
-  /// Clear default for all entities
+  /// Makes <paramref name="preferred"/> the only default. Without one, keeps the current default,
+  /// or makes the oldest configuration the default when there is none.
   /// </summary>
-  /// <returns></returns>
-  public async Task ClearDefaultAsync()
+  private static void KeepSingleDefault(List<AppSettingsCustomEntity> all, AppSettingsCustomEntity? preferred)
   {
-    await _dbContext.AppSettingsCustomItems.ForEachAsync(x => x.Default = false);
-    await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-  }
-
-  /// <summary>
-  /// Clear default for all entities, except excluded Id
-  /// </summary>
-  /// <param name="excludeId">Id to exclude</param>
-  /// <returns></returns>
-  public async Task ClearDefaultAsync(int excludeId)
-  {
-    AppSettingsCustomEntity defSettings = await _dbContext.AppSettingsCustomItems.FirstOrDefaultAsync(x => x.Id != excludeId && x.Default);
-    if (defSettings != null)
+    AppSettingsCustomEntity? chosen = preferred
+      ?? all.Where(entity => entity.Default).OrderBy(entity => entity.Id).FirstOrDefault()
+      ?? all.OrderBy(entity => entity.Id).FirstOrDefault();
+    foreach (AppSettingsCustomEntity entity in all)
     {
-      defSettings.Default = false;
-      _dbContext.Entry(defSettings).State = EntityState.Modified;
-      await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-    }
-  }
-
-  public async Task DeleteAsync(AppSettingsCustomEntity entity)
-  {
-    _dbContext.AppSettingsCustomItems.Remove(entity);
-    await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-  }
-
-  public async Task<IEnumerable<AppSettingsCustomEntity>> GetAsync()
-  {
-    return await _dbContext.AppSettingsCustomItems.ToListAsync();
-  }
-
-  public async Task<AppSettingsCustomEntity> GetByIdAsync(int id)
-  {
-    return await _dbContext.AppSettingsCustomItems.FirstOrDefaultAsync(c => c.Id == id);
-  }
-
-  public async Task SetDefaultAsync(int id)
-  {
-    await _dbContext.AppSettingsCustomItems.ForEachAsync(x => x.Default = false);
-    AppSettingsCustomEntity defSettings = await _dbContext.AppSettingsCustomItems.FirstOrDefaultAsync(c => c.Id == id);
-    defSettings.Default = true;
-    _dbContext.Entry(defSettings).State = EntityState.Modified;
-    await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-  }
-
-  /// <summary>
-  /// Set first entity as default if there is no one
-  /// </summary>
-  /// <returns></returns>
-  public async Task SetDefaultAsync()
-  {
-    AppSettingsCustomEntity defOption = await _dbContext.AppSettingsCustomItems.FirstOrDefaultAsync(c => c.Default);
-    if (defOption == null)
-    {
-      AppSettingsCustomEntity defSettings = await _dbContext.AppSettingsCustomItems.FirstOrDefaultAsync();
-      defSettings.Default = true;
-      _dbContext.Entry(defSettings).State = EntityState.Modified;
-      await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-    }
-  }
-
-  public async Task UpdateAsync(AppSettingsCustomEntity entity)
-  {
-    _dbContext.Entry(entity).State = EntityState.Modified;
-    await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-
-    bool isDefault = entity.Default;
-    if (isDefault)
-    {
-      await ClearDefaultAsync(entity.Id).ConfigureAwait(false);
+      entity.Default = ReferenceEquals(entity, chosen);
     }
   }
 }

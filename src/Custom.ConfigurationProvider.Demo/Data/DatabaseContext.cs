@@ -1,50 +1,41 @@
 ﻿using Custom.Configuration.Provider.Demo.Data.Entities;
 using Custom.Configuration.Provider.Demo.Data.Entities.Common;
 using Microsoft.EntityFrameworkCore;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Custom.Configuration.Provider.Demo.Data;
 
-public class DatabaseContext : DbContext
+public class DatabaseContext(DbContextOptions<DatabaseContext> options) : DbContext(options)
 {
-  // Don't remove any of constructors!
-  public DatabaseContext()
+  public DbSet<AppSettingsCustomEntity> AppSettingsCustomItems => Set<AppSettingsCustomEntity>();
+
+  // Every SaveChanges and SaveChangesAsync overload ends up in one of these two overrides
+  public override int SaveChanges(bool acceptAllChangesOnSuccess)
   {
+    HashSet<Type> changedEntityTypes = GetChangedEntityTypes();
+    int result = base.SaveChanges(acceptAllChangesOnSuccess);
+    NotifyChanged(changedEntityTypes);
+    return result;
   }
 
-  public DatabaseContext(DbContextOptions<DatabaseContext> options)
-      : base(options)
+  public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
   {
+    HashSet<Type> changedEntityTypes = GetChangedEntityTypes();
+    int result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    NotifyChanged(changedEntityTypes);
+    return result;
   }
 
-  public DbSet<AppSettingsCustomEntity> AppSettingsCustomItems { get; set; }
+  private HashSet<Type> GetChangedEntityTypes() => ChangeTracker.Entries()
+    .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+    .Select(entry => entry.Entity.GetType())
+    .ToHashSet();
 
-  public override int SaveChanges()
+  // Only after the save succeeded, and once per save (not once per changed row)
+  private static void NotifyChanged(HashSet<Type> changedEntityTypes)
   {
-    TrackEntityChanges();
-    return base.SaveChanges();
-  }
-
-  public async Task<int> SaveChangesAsync()
-  {
-    TrackEntityChanges();
-    return await base.SaveChangesAsync();
-  }
-
-  public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-  {
-    TrackEntityChanges();
-    return await base.SaveChangesAsync(cancellationToken);
-  }
-
-  private void TrackEntityChanges()
-  {
-    foreach (var entry in ChangeTracker.Entries().Where(e =>
-      e.State == EntityState.Modified || e.State == EntityState.Added || e.State == EntityState.Deleted))
+    if (changedEntityTypes.Count > 0)
     {
-      EntityChangeObserver.Instance.OnChanged(new EntityChangeEventArgs(entry));
+      EntityChangeObserver.Instance.OnChanged(new EntityChangeEventArgs(changedEntityTypes));
     }
   }
 }

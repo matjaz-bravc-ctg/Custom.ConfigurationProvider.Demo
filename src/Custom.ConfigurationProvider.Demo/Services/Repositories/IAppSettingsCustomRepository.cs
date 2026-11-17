@@ -1,24 +1,21 @@
 ﻿using Custom.Configuration.Provider.Demo.Data.Entities;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace Custom.Configuration.Provider.Demo.Services.Repositories;
 
 public interface IAppSettingsCustomRepository
 {
-  Task<AppSettingsCustomEntity> AddAsync(AppSettingsCustomEntity entity);
+  Task<IReadOnlyList<AppSettingsCustomEntity>> GetAllAsync(CancellationToken cancellationToken = default);
 
-  Task ClearDefaultAsync(int excludeId);
+  Task<AppSettingsCustomEntity?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
-  Task DeleteAsync(AppSettingsCustomEntity entity);
+  Task AddAsync(AppSettingsCustomEntity entity, CancellationToken cancellationToken = default);
 
-  Task<IEnumerable<AppSettingsCustomEntity>> GetAsync();
+  /// <returns>False when no configuration has the entity's id</returns>
+  Task<bool> UpdateAsync(AppSettingsCustomEntity entity, CancellationToken cancellationToken = default);
 
-  Task<AppSettingsCustomEntity> GetByIdAsync(int id);
+  /// <returns>False when no configuration has the id</returns>
+  Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default);
 
-  Task SetDefaultAsync(int id);
-
-  Task SetDefaultAsync();
-
-  Task UpdateAsync(AppSettingsCustomEntity entity);
+  /// <returns>False when no configuration has the id</returns>
+  Task<bool> SetDefaultAsync(int id, CancellationToken cancellationToken = default);
 }

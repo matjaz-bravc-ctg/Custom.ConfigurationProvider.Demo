@@ -1,9 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore.ChangeTracking;
-using System;
+﻿namespace Custom.Configuration.Provider.Demo.Data.Entities.Common;
 
-namespace Custom.Configuration.Provider.Demo.Data.Entities.Common;
-
-public class EntityChangeEventArgs(EntityEntry entry) : EventArgs
+public sealed class EntityChangeEventArgs(IReadOnlySet<Type> entityTypes) : EventArgs
 {
-  public EntityEntry Entry { get; set; } = entry;
+  /// <summary>
+  /// Types of the entities that were added, modified or deleted
+  /// </summary>
+  public IReadOnlySet<Type> EntityTypes { get; } = entityTypes;
 }

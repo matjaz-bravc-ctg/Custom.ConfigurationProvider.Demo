@@ -1,32 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using Custom.Configuration.Provider.Demo.Data.Entities;
+﻿using Custom.Configuration.Provider.Demo.Data.Entities;
 using Custom.Configuration.Provider.Demo.Services.Repositories;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Custom.Configuration.Provider.Demo.Pages.CustomSettings;
 
-  public class IndexModel : PageModel
-  {
+public class IndexModel(IAppSettingsCustomRepository repository) : PageModel
+{
+  public IReadOnlyList<AppSettingsCustomEntity> AppSettingsCustomEntities { get; private set; } = [];
 
-      private readonly IAppSettingsCustomRepository _appSettingsCustomRepository;
+  public async Task OnGetAsync(CancellationToken cancellationToken) =>
+    AppSettingsCustomEntities = await repository.GetAllAsync(cancellationToken);
 
-      public IndexModel(IAppSettingsCustomRepository appSettingsCustomRepository)
-      {
-          _appSettingsCustomRepository = appSettingsCustomRepository ?? throw new ArgumentNullException(nameof(AppSettingsCustomRepository));
-      }
-
-      public IEnumerable<AppSettingsCustomEntity> AppSettingsCustomEntities { get; set; } = new List<AppSettingsCustomEntity>();
-
-      public async Task<IActionResult> OnGetAsync(int? id)
-      {
-          if (id != null)
-          {
-              await _appSettingsCustomRepository.SetDefaultAsync(id.Value).ConfigureAwait(false);
-          }
-          AppSettingsCustomEntities = await _appSettingsCustomRepository.GetAsync().ConfigureAwait(false);
-          return Page();
-      }
-  }
+  // Changing the default changes data, so it is a POST with antiforgery validation, not a link
+  public async Task<IActionResult> OnPostSetDefaultAsync(int id, CancellationToken cancellationToken) =>
+    await repository.SetDefaultAsync(id, cancellationToken) ? RedirectToPage() : NotFound();
+}

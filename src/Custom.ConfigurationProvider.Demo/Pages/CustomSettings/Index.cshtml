@@ -24,7 +24,9 @@
             <td>@config.CustomSettingB</td>
             <td><input type="checkbox" checked=@config.Default disabled></td>
             <td>
-                <a class="btn btn-info" asp-page="./Index" asp-route-id="@config.Id">Default</a>
+                <form method="post" asp-page-handler="SetDefault" asp-route-id="@config.Id" class="d-inline">
+                    <button type="submit" class="btn btn-info">Default</button>
+                </form>
                 <a class="btn btn-primary" asp-page="./Edit" asp-route-id="@config.Id">Edit</a>
                 <a class="btn btn-danger" asp-page="./Delete" asp-route-id="@config.Id">Delete</a>
             </td>

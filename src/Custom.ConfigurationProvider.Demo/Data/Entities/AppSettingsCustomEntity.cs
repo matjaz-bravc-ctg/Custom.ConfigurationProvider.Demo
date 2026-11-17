@@ -13,11 +13,11 @@ public class AppSettingsCustomEntity
 
   [Description("CustomSetting A")]
   [Column("CustomSettingA", TypeName = "nvarchar(512)")]
-  public string CustomSettingA { get; set; }
+  public string? CustomSettingA { get; set; }
 
   [Description("CustomSetting B")]
   [Column("CustomSettingB", TypeName = "nvarchar(512)")]
-  public string CustomSettingB { get; set; }
+  public string? CustomSettingB { get; set; }
 
   [Column("Default", TypeName = "bit")]
   public bool Default { get; set; } = true;

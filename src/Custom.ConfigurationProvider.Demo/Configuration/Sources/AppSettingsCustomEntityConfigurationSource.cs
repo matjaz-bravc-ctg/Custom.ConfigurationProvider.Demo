@@ -1,26 +1,24 @@
 ﻿using Custom.Configuration.Provider.Demo.Configuration.Providers;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using System;
 
 namespace Custom.Configuration.Provider.Demo.Configuration.Sources;
 
-public class AppSettingsCustomEntityConfigurationSource(IConfiguration configuration) : IConfigurationSource
+public sealed class AppSettingsCustomEntityConfigurationSource : IConfigurationSource
 {
-  public IConfiguration Configuration { get; private set; } = configuration;
-
-  public Action<DbContextOptionsBuilder> OptionsAction { get; set; }
+  /// <summary>
+  /// Configures the database the provider reads from
+  /// </summary>
+  public required Action<DbContextOptionsBuilder> OptionsAction { get; init; }
 
   /// <summary>
-  ///     Number of milliseconds that ConfigurationProvider will wait before calling Load method.
-  ///     This helps avoid triggering a reload before a change is saved.
+  /// Reload the values whenever a DatabaseContext saves changes to AppSettingsCustomEntity
   /// </summary>
-  public int ReloadDelay { get; set; } = 500;
+  public bool ReloadOnChange { get; init; } = true;
 
-  public bool ReloadOnChange { get; set; }
+  /// <summary>
+  /// Called when a reload fails. The provider keeps the values from the last successful load.
+  /// </summary>
+  public Action<Exception>? OnReloadException { get; init; }
 
-  public IConfigurationProvider Build(IConfigurationBuilder builder)
-  {
-    return new AppSettingsCustomEntityConfigurationProvider(this);
-  }
+  public IConfigurationProvider Build(IConfigurationBuilder builder) => new AppSettingsCustomEntityConfigurationProvider(this);
 }
